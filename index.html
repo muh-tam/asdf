@@ -245,7 +245,7 @@
 
 <div class="card" id="pageLogin">
   <h1>🔐 Brankas Rahasia Cloud</h1>
-  <p class="sub">Masukkan password brankas Anda. Kunci Salt dan data Anda tersimpan aman secara terenkripsi di Firebase Database.</p>
+  <p class="sub">Masukkan password brankas Anda. Kunci Salt dan data Anda tersimpan aman secara terenkripsi di cloud.</p>
   
   <label>Password Brankas</label>
   <input id="pwdLogin" type="password" placeholder="Minimal 8 karakter">
@@ -406,7 +406,7 @@ document.getElementById("btnSimpan").onclick = async ()=>{
   
   document.getElementById("nama").value = "";
   document.getElementById("plain").value = "";
-  status.innerHTML='<span class="ok">✨ Tersimpan aman di Firebase Cloud!</span>';
+  status.innerHTML='<span class="ok">✨ Tersimpan aman di brangkas</span>';
   setTimeout(() => status.innerHTML = "", 3000);
 }
 
