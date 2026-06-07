@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Brankas Hex Cloud Modern</title>
+<title>BRANGKAS SUPER RAHASIA</title>
 <style>
   :root {
     --bg-gradient: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
@@ -244,8 +244,8 @@
 <body>
 
 <div class="card" id="pageLogin">
-  <h1>🔐 Brankas Rahasia Cloud</h1>
-  <p class="sub">Masukkan password brankas Anda. Kunci Salt dan data Anda tersimpan aman secara terenkripsi di cloud.</p>
+  <h1>🔐 BRANGKAS SUPER RAHASIA</h1>
+  <p class="sub">Buat password baru atau masukkan password kamu untuk membuka brangkas.</p>
   
   <label>Password Brankas</label>
   <input id="pwdLogin" type="password" placeholder="Minimal 8 karakter">
@@ -255,7 +255,7 @@
 
 <div class="card hidden" id="pageVault">
   <h1>📦 Ruang Penyimpanan Cloud</h1>
-  <p class="sub">Simpan data teks sensitif dengan aman. Data terenkripsi disinkronkan langsung ke cloud database Anda.</p>
+  <p class="sub">Simpan data teks sensitif dengan aman. Data terenkripsi disinkronkan langsung ke vault khusus Anda.</p>
   
   <label>Nama Catatan</label>
   <input id="nama" placeholder="Contoh: Password Email Utama">
@@ -268,7 +268,7 @@
   
   <hr>
   
-  <h3 style="margin:0; font-size:16px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Daftar Catatan Cloud</h3>
+  <h3 style="margin:0; font-size:16px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Daftar Catatan Vault Ini</h3>
   <div id="listCatatan"></div>
   
   <button class="ghost" id="btnKeluar" style="margin-top:24px">🔒 Kunci & Keluar</button>
@@ -277,7 +277,7 @@
 <div id="secureModal" class="modal-overlay hidden">
   <div class="modal">
     <h3 style="margin:0 0 10px; font-size:18px;">🔑 Verifikasi Password</h3>
-    <p style="font-size:14px; color:var(--text-sub); margin:0 0 16px; line-height:1.4;">Masukkan password brankas Anda untuk menyalin teks asli.</p>
+    <p style="font-size:14px; color:var(--text-sub); margin:0 0 16px; line-height:1.4;">Masukkan kembali password brankas untuk vault ini guna mendekripsi teks.</p>
     <input id="pwdVerify" type="password" placeholder="Ketik password di sini..." autofocus>
     <div class="row" style="margin-top:16px;">
       <button class="ghost" id="idCancelModal">Batal</button>
@@ -290,7 +290,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getDatabase, ref, set, get, push, remove, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-// Menggunakan konfigurasi Firebase asli milikmu
+// Konfigurasi Firebase Anda
 const firebaseConfig = {
   apiKey: "AIzaSyDa4xGD0vE2IZB0pdiTTf4ekYrGGBuPQpA",
   authDomain: "brangkas-d976e.firebaseapp.com",
@@ -311,6 +311,8 @@ const dec = new TextDecoder();
 let masterKey = null;
 let currentActiveId = null;
 let cachedData = [];
+let currentVaultPath = ""; 
+let cloudListener = null; // Menyimpan fungsi unsubscribe Firebase
 
 async function getKey(password, salt){
   const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]);
@@ -341,13 +343,29 @@ async function getSaltCloud(){
   }
 }
 
-// BUKA BRANKAS
+// FUNGSI ENTER UNTUK LOGIN DAN MODAL
+document.getElementById("pwdLogin").addEventListener("keypress", function(event) {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    document.getElementById("btnBuka").click();
+  }
+});
+
+document.getElementById("pwdVerify").addEventListener("keypress", function(event) {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    document.getElementById("btnConfirmModal").click();
+  }
+});
+
+
+// BUKA BRANKAS (MULTI-VAULT)
 document.getElementById("btnBuka").onclick = async ()=>{
   const pwd = document.getElementById("pwdLogin").value;
   const status = document.getElementById("statusLogin");
   if(pwd.length < 8){ status.innerHTML='<span class="err">⚠️ Password minimal 8 karakter</span>'; return; }
   
-  status.innerHTML = "Memproses koneksi cloud...";
+  status.innerHTML = "Membuat/Membuka ruang brankas...";
   const btn = document.getElementById("btnBuka");
   btn.disabled = true;
 
@@ -355,35 +373,22 @@ document.getElementById("btnBuka").onclick = async ()=>{
     const salt = await getSaltCloud();
     masterKey = await getKey(pwd, salt);
     
-    const testSnapshot = await get(ref(db, "brankas_system/test"));
-    if(testSnapshot.exists()){
-      try{
-        const d = fromHex(testSnapshot.val());
-        await crypto.subtle.decrypt({name:"AES-GCM", iv:d.slice(0,12)}, masterKey, d.slice(12));
-      }catch{
-        status.innerHTML='<span class="err">❌ Password salah! Akses ditolak.</span>';
-        masterKey = null;
-        btn.disabled = false;
-        return;
-      }
-    }else{
-      const iv = crypto.getRandomValues(new Uint8Array(12));
-      const cipher = await crypto.subtle.encrypt({name:"AES-GCM", iv}, masterKey, enc.encode("ok"));
-      const combined = new Uint8Array(iv.length + cipher.byteLength);
-      combined.set(iv,0); combined.set(new Uint8Array(cipher), iv.length);
-      await set(ref(db, "brankas_system/test"), toHex(combined));
-    }
+    // Generate Vault ID yang unik berdasarkan hash dari Password + Salt
+    // Ini membuat setiap password memiliki foldernya sendiri di database
+    const vaultIdHash = await crypto.subtle.digest("SHA-256", enc.encode(pwd + toHex(salt)));
+    const vaultId = toHex(vaultIdHash);
+    currentVaultPath = `brankas_vaults/${vaultId}`;
     
     document.getElementById("pageLogin").classList.add("hidden");
     document.getElementById("pageVault").classList.remove("hidden");
     listenToCloudData();
   } catch(e) {
-    status.innerHTML = `<span class="err">Gagal terhubung ke Cloud: ${e.message}</span>`;
+    status.innerHTML = `<span class="err">Terjadi kesalahan: ${e.message}</span>`;
     btn.disabled = false;
   }
 }
 
-// SIMPAN CATATAN KE CLOUD
+// SIMPAN CATATAN KE CLOUD (SPESIFIK VAULT)
 document.getElementById("btnSimpan").onclick = async ()=>{
   const nama = document.getElementById("nama").value || "Tanpa Nama";
   const text = document.getElementById("plain").value;
@@ -396,7 +401,7 @@ document.getElementById("btnSimpan").onclick = async ()=>{
   combined.set(iv,0); combined.set(new Uint8Array(cipher), iv.length);
   const hex = toHex(combined);
   
-  const dbRef = ref(db, "brankas_data");
+  const dbRef = ref(db, currentVaultPath);
   const newDataRef = push(dbRef);
   await set(newDataRef, {
     id: newDataRef.key,
@@ -406,13 +411,16 @@ document.getElementById("btnSimpan").onclick = async ()=>{
   
   document.getElementById("nama").value = "";
   document.getElementById("plain").value = "";
-  status.innerHTML='<span class="ok">✨ Tersimpan aman di brangkas</span>';
+  status.innerHTML='<span class="ok">✨ Tersimpan aman di vault ini</span>';
   setTimeout(() => status.innerHTML = "", 3000);
 }
 
 function listenToCloudData(){
-  const dbRef = ref(db, "brankas_data");
-  onValue(dbRef, (snapshot) => {
+  // Hentikan listener sebelumnya jika ada (mencegah bentrok antar vault)
+  if(cloudListener) { cloudListener(); }
+  
+  const dbRef = ref(db, currentVaultPath);
+  cloudListener = onValue(dbRef, (snapshot) => {
     cachedData = [];
     const data = snapshot.val();
     if (data) {
@@ -426,7 +434,7 @@ function listenToCloudData(){
 
 function renderCatatan(data){
   const wrap = document.getElementById("listCatatan");
-  if(data.length === 0){ wrap.innerHTML='<div class="muted" style="margin-top:20px;">Belum ada catatan rahasia di cloud.</div>'; return; }
+  if(data.length === 0){ wrap.innerHTML='<div class="muted" style="margin-top:20px;">Belum ada catatan rahasia di vault ini.</div>'; return; }
   
   wrap.innerHTML = data.map(item=>`
     <div class="item">
@@ -471,6 +479,7 @@ document.getElementById("btnConfirmModal").onclick = async () => {
     alert("Sukses! Teks asli cloud berhasil disalin ke clipboard ✓");
     document.getElementById("secureModal").classList.add("hidden");
   } catch {
+    // Karena multi-vault, jika password salah untuk vault INI, maka dekripsi gagal
     alert("Password salah! Proses dekripsi gagal.");
   }
 }
@@ -481,12 +490,19 @@ document.getElementById("idCancelModal").onclick = () => {
 }
 
 window.hapus = async (id)=>{
-  if(!confirm("Apakah Anda yakin ingin menghapus catatan cloud ini secara permanen?")) return;
-  await remove(ref(db, `brankas_data/${id}`));
+  if(!confirm("Apakah Anda yakin ingin menghapus catatan ini secara permanen dari vault ini?")) return;
+  await remove(ref(db, `${currentVaultPath}/${id}`));
 }
 
 document.getElementById("btnKeluar").onclick = ()=>{
+  // Hentikan listener firebase agar data vault tertutup rapat
+  if(cloudListener) { cloudListener(); cloudListener = null; }
+  
   masterKey = null;
+  currentVaultPath = "";
+  cachedData = [];
+  document.getElementById("listCatatan").innerHTML = "";
+  
   document.getElementById("pwdLogin").value = "";
   document.getElementById("btnBuka").disabled = false;
   document.getElementById("statusLogin").innerHTML = "";
