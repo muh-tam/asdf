@@ -287,23 +287,24 @@
 </div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getDatabase, ref, set, get, child, push, remove, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+  
 // !!! GANTI DENGAN KONFIGURASI FIREBASE KAMU SENDIRI !!!
 const firebaseConfig = {
-  apiKey: "CONTOH-API-KEY-KAMU",
-  authDomain: "proyek-kamu.firebaseapp.com",
-  databaseURL: "https://proyek-kamu-default-rtdb.firebaseio.com",
-  projectId: "proyek-kamu",
-  storageBucket: "proyek-kamu.appspot.com",
-  messagingSenderId: "1234567890",
-  appId: "1:123456:web:abcdef"
+  apiKey: "AIzaSyDa4xGD0vE2IZB0pdiTTf4ekYrGGBuPQpA",
+  authDomain: "brangkas-d976e.firebaseapp.com",
+  databaseURL: "https://brangkas-d976e-default-rtdb.firebaseio.com",
+  projectId: "brangkas-d976e",
+  storageBucket: "brangkas-d976e.firebasestorage.app",
+  messagingSenderId: "862412685357",
+  appId: "1:862412685357:web:903ee68faa56882bd278a4",
+  measurementId: "G-XY7GSWRD0X"
 };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+const analytics = getAnalytics(app);
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
